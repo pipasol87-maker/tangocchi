@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#FFE4F0">
-<title>たんごっち 🥚 育てるIELTS単語帳</title>
+<title>たんごっち📖 本の単語版（IELTS）</title>
 <!-- LINE等のSNSプレビュー用 -->
 <meta name="description" content="かわいいキャラを育てながらIELTS頻出500語をゲーム感覚で覚える無料の英単語アプリ。登録不要・スマホでそのまま遊べる🥚">
 <meta property="og:title" content="たんごっち｜育てるIELTS英単語">
@@ -455,7 +455,7 @@ const MSG={
 /* =======================================================================
    状態
    ======================================================================= */
-const KEY="tangocchi_v3";   // ← 保存キー。変更すると記録がリセットされ最初から始まる
+const KEY="tangocchi_book_v1";   // 本の単語版（記録は本体と別）   // ← 保存キー。変更すると記録がリセットされ最初から始まる
 let S = load();
 
 function defaultState(){
@@ -616,7 +616,7 @@ function newQuestion(){
   lastWord=current.w;
   $("qmode").textContent = reviewMode ? "📕 復習モード：意味は？" : "この単語の意味は？";
   $("word").textContent=current.w;
-  $("pos").textContent=(({n:"名詞",v:"動詞",adj:"形容詞",adv:"副詞"}[current.pos])||"")+(current.ipa?"  "+current.ipa:"");
+  $("pos").textContent=(({n:"名詞",v:"動詞",adj:"形容詞",adv:"副詞",prep:"前置詞",conj:"接続詞",phr:"熟語",pron:"代名詞"}[current.pos])||"")+(current.ipa?"  "+current.ipa:"");
   // 答える前のヒント：英語の例文（日本語訳は伏せる＝ネタバレなし）
   $("sub").innerHTML='<span style="opacity:.85">💡 '+hintSentence(current)+'</span>';
   const wrongs=shuffle(WORDS.filter(x=>x.jp!==current.jp)).slice(0,3).map(x=>x.jp);
