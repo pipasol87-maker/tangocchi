@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ワードクエスト ―― 英単語バトルRPG</title>
+<style>
+  :root{
+    --card:#23264d; --line:#3a3e6e; --gold:#ffd23f; --green:#3ddc84;
+    --red:#ff4d6d; --blue:#4cc9f0; --purple:#9d4edd; --ink:#eef0ff; --dim:#9aa0d0;
+  }
+  *{box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; user-select:none;}
+  body{font-family:'Hiragino Maru Gothic ProN','Yu Gothic',sans-serif; color:var(--ink);
+    background:radial-gradient(circle at 50% 0%,#2a2d5e,#0f1024 70%); min-height:100vh;
+    display:flex; justify-content:center; overflow-x:hidden;}
+  .app{width:100%; max-width:480px; min-height:100vh; display:flex; flex-direction:column; position:relative; overflow:hidden;}
+  .app.shake{animation:appshake .45s;}
+  @keyframes appshake{0%,100%{transform:translateX(0)}15%{transform:translateX(-12px)}30%{transform:translateX(11px)}
+    45%{transform:translateX(-9px)}60%{transform:translateX(7px)}75%{transform:translateX(-5px)}90%{transform:translateX(3px)}}
+  svg{display:block; width:100%; height:100%;}
+  .screen{flex:1; display:none; flex-direction:column; padding:14px;}
+  .screen.active{display:flex;}
+  button{font-family:inherit;}
+
+  .stats{display:flex; gap:6px; justify-content:center; background:var(--card); border:1px solid var(--line);
+    border-radius:14px; padding:8px 4px; font-weight:800; font-size:14px;}
+  .stats .chip{display:flex; align-items:center; gap:3px; padding:2px 6px;}
+  .stats .chip b{color:var(--gold);}
+  .goalwrap{margin-top:8px;}
+  .goallabel{display:flex; justify-content:space-between; font-size:11px; color:var(--dim); margin-bottom:2px;}
+  .goalbar{height:10px; background:#0c0d20; border:1px solid var(--line); border-radius:8px; overflow:hidden;}
+  .goalbar > i{display:block; height:100%; width:0%; background:linear-gradient(90deg,var(--green),var(--gold)); transition:width .4s;}
+
+  .title{font-size:26px; font-weight:900; letter-spacing:1px; text-align:center; margin:6px 0;
+    background:linear-gradient(90deg,var(--gold),var(--red),var(--purple));
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;}
+  .maptitle{font-size:13px; color:var(--dim); text-align:center; margin:8px 0 4px;}
+  .map{flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:4px; padding:4px 0 10px;}
+  .node{display:flex; align-items:center; gap:12px; padding:12px 14px; border-radius:16px;
+    background:linear-gradient(135deg,var(--card),#2c2f5e); border:1px solid var(--line);
+    border-bottom:4px solid #15173a; cursor:pointer; transition:transform .08s; position:relative;}
+  .node:active{transform:scale(.98);}
+  .node.locked{opacity:.5; filter:grayscale(.7); cursor:not-allowed;}
+  .node.cleared{border-color:var(--green);}
+  .node .mon{width:50px; height:50px; flex-shrink:0; filter:drop-shadow(0 0 6px rgba(76,201,240,.5));}
+  .node .meta b{display:block; font-size:16px;} .node .meta span{font-size:12px; color:var(--dim);}
+  .node .badge{margin-left:auto; font-size:18px;} .node .stg{position:absolute; top:6px; right:10px; font-size:10px; color:var(--gold); font-weight:800;}
+  .connector{height:12px; width:4px; background:var(--line); margin:0 auto; border-radius:2px;}
+  .homebtns{display:flex; flex-direction:column; gap:8px; margin-top:6px;}
+  .review-btn{background:linear-gradient(90deg,#ff924d,var(--red)); color:#fff; border:none; border-bottom:4px solid #b3263f;}
+
+  /* バトル */
+  #battle{padding:12px; gap:5px;}
+  .toprow{display:flex; justify-content:space-between; align-items:center;}
+  .ename{font-size:13px; color:var(--dim);}
+  .iconbtn{background:none; border:none; color:var(--dim); font-size:18px; cursor:pointer; padding:4px;}
+  .hpwrap{margin:2px auto; max-width:320px; width:100%;}
+  .hpbar{height:13px; background:#0c0d20; border:1px solid var(--line); border-radius:10px; overflow:hidden;}
+  .hpbar > i{display:block; height:100%; border-radius:10px; transition:width .35s;}
+  .ehp > i{background:linear-gradient(90deg,#ff4d6d,#ff924d);}
+  .php > i{background:linear-gradient(90deg,#3ddc84,#4cc9f0);}
+  .hptext{font-size:11px; color:var(--dim); margin-top:1px; text-align:center;}
+  .mon-big{width:96px; height:96px; margin:0 auto; display:block; filter:drop-shadow(0 6px 10px rgba(0,0,0,.5)); transition:transform .1s;}
+  .mon-big.hit{animation:shake .3s;} .mon-big.idle{animation:idle 1.8s infinite ease-in-out;}
+  .mon-big.attack{animation:lunge .4s;}
+  @keyframes idle{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+  @keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-13px) rotate(-6deg)}40%{transform:translateX(13px) rotate(6deg)}60%{transform:translateX(-9px)}80%{transform:translateX(9px)}}
+  @keyframes lunge{0%{transform:translateY(0)}40%{transform:translateY(40px) scale(1.15)}100%{transform:translateY(0)}}
+  .combo{height:18px; text-align:center; color:var(--gold); font-weight:900; font-size:16px; text-shadow:0 0 10px var(--gold);}
+  .combo.pump{animation:pump .3s;} @keyframes pump{0%{transform:scale(1)}50%{transform:scale(1.4)}100%{transform:scale(1)}}
+
+  .dmg{position:absolute; left:50%; top:20%; transform:translateX(-50%); font-weight:900; color:var(--gold);
+    text-shadow:0 0 12px #000; pointer-events:none; opacity:0; z-index:5; font-size:42px;}
+  .dmg.go{animation:pop 1s ease-out;}
+  .dmg.crit{color:#fff; font-size:52px;} .dmg.sp{color:#ffe066; font-size:56px;}
+  @keyframes pop{0%{opacity:1; transform:translate(-50%,0) scale(.5);}30%{transform:translate(-50%,-26px) scale(1.3);}100%{opacity:0; transform:translate(-50%,-80px) scale(1);}}
+  .star{position:absolute; left:50%; top:26%; font-size:24px; pointer-events:none; z-index:6; transition:transform .7s ease-out, opacity .7s;}
+
+  .spwrap{max-width:320px; margin:2px auto 0; width:100%;}
+  .splabel{display:flex; justify-content:space-between; font-size:11px; color:var(--dim); margin-bottom:2px;}
+  .spbar{height:9px; background:#0c0d20; border:1px solid var(--purple); border-radius:10px; overflow:hidden;}
+  .spbar > i{display:block; height:100%; width:0%; background:linear-gradient(90deg,var(--purple),var(--blue),var(--gold)); transition:width .3s;}
+  .sp-btn{width:100%; max-width:320px; margin:4px auto 0; padding:8px; border-radius:12px; border:none; font-weight:900; font-size:13px;
+    background:#2c2f5e; color:var(--dim); border-bottom:3px solid #15173a; cursor:not-allowed; transition:.15s;}
+  .sp-btn.ready{background:linear-gradient(90deg,var(--purple),var(--gold)); color:#1a1030; cursor:pointer; animation:glow .8s infinite; border-bottom-color:#c98a00;}
+  @keyframes glow{0%,100%{box-shadow:0 0 4px var(--purple)}50%{box-shadow:0 0 18px var(--gold)}}
+  .timewrap{max-width:320px; width:100%; margin:4px auto 0;}
+  .timebar{height:6px; background:#0c0d20; border-radius:8px; overflow:hidden;}
+  .timebar > i{display:block; height:100%; width:100%; background:linear-gradient(90deg,var(--green),var(--gold),var(--red)); transition:width .05s linear;}
+
+  .qcard{background:var(--card); border:1px solid var(--line); border-radius:16px; padding:10px; text-align:center; margin-top:4px;}
+  .qtype{font-size:12px; color:var(--blue); font-weight:800;}
+  .retry{color:var(--gold); font-weight:900; font-size:13px;}
+  .wordrow{display:flex; align-items:center; justify-content:center; gap:8px; margin-top:2px;}
+  .qword{font-size:32px; font-weight:900;}
+  .speak{background:#1cb0f6; border:none; border-radius:50%; width:42px; height:42px; color:#fff; font-size:20px; cursor:pointer; border-bottom:3px solid #0d7fb8;}
+  .speak:active{transform:translateY(2px);}
+  .pic{font-size:46px; line-height:1.1; margin:2px 0;}
+  .hintbtn{background:none; border:1px dashed var(--line); color:var(--gold); border-radius:10px; padding:5px 12px; font-size:13px; font-weight:800; cursor:pointer;}
+  .hint{margin-top:8px; font-size:14px; background:#1a1c3a; border-radius:10px; padding:8px;}
+  .hint .ja{color:var(--dim); font-size:13px; margin-top:2px;}
+  #playArea{margin-top:8px;}
+  .choices{display:grid; grid-template-columns:1fr 1fr; gap:10px;}
+  .choice{padding:15px 8px; border-radius:12px; background:#2c2f5e; border:1px solid var(--line); border-bottom:3px solid #15173a;
+    color:var(--ink); font-size:16px; cursor:pointer; transition:.1s;}
+  .choice:active{transform:translateY(2px);}
+  .choice.ok{background:#16633b; border-color:var(--green); color:#aaffcf; font-weight:800; animation:pump .3s;}
+  .choice.ng{background:#6b1f33; border-color:var(--red); color:#ffc0cc; font-weight:800;}
+  .choice:disabled{cursor:default;}
+
+  .flash{position:absolute; inset:0; pointer-events:none; opacity:0; background:var(--red); z-index:4;}
+  .flash.go{animation:fl .4s;} .flash.spfx{background:radial-gradient(circle,#fff,var(--gold));}
+  .vignette{position:absolute; inset:0; pointer-events:none; opacity:0; z-index:4;
+    box-shadow:inset 0 0 80px 30px var(--red);}
+  .vignette.go{animation:fl .5s;}
+  @keyframes fl{0%{opacity:.55}100%{opacity:0}}
+
+  /* レベルアップ オーバーレイ */
+  #levelup{position:absolute; inset:0; z-index:20; display:none; flex-direction:column; align-items:center; justify-content:center;
+    background:rgba(8,9,25,.92); text-align:center; gap:6px;}
+  #levelup.show{display:flex; animation:fl2 .4s;} @keyframes fl2{from{opacity:0}to{opacity:1}}
+  .lu-burst{font-size:30px; letter-spacing:4px; animation:pump .6s infinite;}
+  .lu-title{font-size:40px; font-weight:900; color:var(--gold); text-shadow:0 0 24px var(--gold); animation:zoom .5s;}
+  @keyframes zoom{from{transform:scale(.3); opacity:0}to{transform:scale(1); opacity:1}}
+  .lu-wpn{font-size:64px; margin:6px 0; animation:zoom .6s;}
+  .lu-msg{font-size:18px; font-weight:800;} .lu-sub{color:var(--green); font-weight:900; font-size:20px;}
+
+  #result{justify-content:center; align-items:center; text-align:center; gap:12px;}
+  .res-emo{width:112px; height:112px;}
+  .res-title{font-size:26px; font-weight:900;}
+  .win{color:var(--gold); text-shadow:0 0 16px var(--gold);} .lose{color:var(--red);}
+  .getbox{background:var(--card); border:1px solid var(--gold); border-radius:14px; padding:12px 18px;}
+  .getbox .gm{width:70px; height:70px; margin:0 auto;} .getbox b{color:var(--gold);}
+  .rewards{display:flex; gap:10px;}
+  .rw{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:10px 14px;}
+  .rw b{display:block; font-size:22px; color:var(--gold);} .rw span{font-size:11px; color:var(--dim);}
+
+  #dex{gap:8px;}
+  .dexgrid{flex:1; overflow-y:auto; display:grid; grid-template-columns:1fr 1fr; gap:12px; padding:6px 2px;}
+  .dexcell{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:10px; text-align:center;}
+  .dexcell.got{border-color:var(--green);} .dexcell .gm{width:74px; height:74px; margin:0 auto;}
+  .dexcell b{font-size:14px;} .dexcell span{font-size:11px; color:var(--dim);}
+
+  /* ヒーロー（武装した自分）*/
+  .herowrap{position:relative; display:inline-block; vertical-align:middle;}
+  .herowrap > svg{width:100%; height:100%; display:block; position:relative; z-index:1;}
+  .hero-aura{position:absolute; inset:-14%; border-radius:50%; z-index:0;}
+  .hero-wpn{position:absolute; right:-8%; top:52%; transform:translateY(-50%) rotate(-18deg); z-index:2;
+    filter:drop-shadow(0 1px 2px rgba(0,0,0,.7)); line-height:1;}
+  .herowrap.swing{animation:hop .4s;}
+  .herowrap.swing .hero-wpn{animation:swing .4s;}
+  @keyframes hop{0%,100%{transform:translateY(0)}40%{transform:translateY(-8px)}}
+  @keyframes swing{0%{transform:translateY(-50%) rotate(-18deg)}50%{transform:translateY(-50%) rotate(40deg) scale(1.25)}100%{transform:translateY(-50%) rotate(-18deg)}}
+
+  .herocard{display:flex; align-items:center; gap:12px; background:linear-gradient(135deg,var(--card),#2c2f5e);
+    border:1px solid var(--line); border-radius:14px; padding:8px 14px; margin-top:8px; cursor:pointer;}
+  .herocard .herostat{flex:1;}
+  .herostat b{display:block; font-size:18px; color:var(--gold);}
+  .herostat .wn{font-size:14px; font-weight:800;} .herostat .nx{font-size:11px; color:var(--dim);}
+  .herocard .go{font-size:12px; color:var(--blue); font-weight:800;}
+
+  .playerline{display:flex; align-items:center; justify-content:center; gap:8px; margin-top:2px;}
+
+  /* そうび画面 */
+  .gearhero{display:flex; flex-direction:column; align-items:center; gap:4px; margin:4px 0;}
+  .gearhero b{color:var(--gold); font-size:18px;}
+  .gearlist{flex:1; overflow-y:auto; display:flex; flex-direction:column; gap:8px; padding:4px 2px;}
+  .gearrow{display:flex; align-items:center; gap:12px; background:var(--card); border:1px solid var(--line);
+    border-radius:12px; padding:10px 12px;}
+  .gearrow.eq{border-color:var(--gold); background:#2c2a1a;}
+  .gearrow.lock{opacity:.55;}
+  .gearrow .ge{font-size:30px; width:40px; text-align:center;}
+  .gearrow .gn b{font-size:15px;} .gearrow .gn span{font-size:12px; color:var(--dim);}
+  .gearrow .gs{margin-left:auto; font-size:12px; font-weight:800;}
+  .gearrow.eq .gs{color:var(--gold);} .gearrow.lock .gs{color:var(--dim);} .gearrow .gs.done{color:var(--green);}
+
+  .btn{width:100%; padding:14px; border:none; border-radius:14px; font-size:16px; font-weight:900; color:#1a1030;
+    background:linear-gradient(90deg,var(--gold),#ffb703); border-bottom:4px solid #c98a00; cursor:pointer; letter-spacing:.5px;}
+  .btn:active{transform:translateY(2px); border-bottom-width:2px;}
+  .btn.sub{background:var(--card); color:var(--ink); border:1px solid var(--line); border-bottom:4px solid #15173a;}
+  .foot{width:100%; display:flex; flex-direction:column; gap:8px; margin-top:8px;}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+
+  <!-- ホーム -->
+  <section class="screen active" id="home">
+    <div class="title">⚔️ ワードクエスト</div>
+    <div class="stats">
+      <div class="chip">🔥<b id="sStreak">0</b><span style="color:var(--dim);font-size:11px">日</span></div>
+      <div class="chip">⭐Lv<b id="sLv">1</b></div>
+      <div class="chip" id="wpnChip">👊</div>
+      <div class="chip">✨<b id="sXp">0</b></div>
+      <div class="chip">💎<b id="sGem">0</b></div>
+    </div>
+    <div class="goalwrap">
+      <div class="goallabel"><span>今日のもくひょう</span><span id="goalT">0 / 50 XP</span></div>
+      <div class="goalbar"><i id="goalFill"></i></div>
+    </div>
+    <div class="herocard" onclick="openGear()">
+      <div id="homeHero"></div>
+      <div class="herostat">
+        <b id="homeHeroName">🦸 JINSEI</b>
+        <span class="wn" id="homeWpnName">👊 こぶし</span><br>
+        <span class="nx" id="homeAtk">こうげき力 15</span>
+        <span class="nx" id="homeNext"></span>
+      </div>
+      <div class="go">そうび ▶</div>
+    </div>
+    <div class="maptitle">▼ ステージをえらんでモンスターをたおそう ▼</div>
+    <div class="map" id="map"></div>
+    <div class="homebtns">
+      <button class="btn review-btn" id="reviewBtn" style="display:none" onclick="startReview()"></button>
+      <button class="btn sub" onclick="openGear()">⚔️ そうび・つよさ</button>
+      <button class="btn sub" onclick="openDex()">📖 ワード図鑑</button>
+    </div>
+  </section>
+
+  <!-- バトル -->
+  <section class="screen" id="battle">
+    <div class="flash" id="flash"></div>
+    <div class="vignette" id="vignette"></div>
+    <div class="dmg" id="dmg"></div>
+    <div class="toprow">
+      <button class="iconbtn" onclick="goHome()">⟵</button>
+      <div class="ename" id="eName">モンスター</div>
+      <button class="iconbtn" id="muteBtn" onclick="toggleMute()">🔊</button>
+    </div>
+    <div class="hpwrap"><div class="hpbar ehp"><i id="eHp"></i></div><div class="hptext"><span id="eHpT"></span></div></div>
+    <div class="mon-big idle" id="eMon"></div>
+    <div class="combo" id="combo"></div>
+    <div class="hpwrap"><div class="hpbar php"><i id="pHp"></i></div>
+      <div class="playerline"><span id="battleHero"></span><span class="hptext" id="pHpT"></span></div></div>
+    <div class="spwrap"><div class="splabel"><span>⚡ 必殺ゲージ</span><span id="spT">0%</span></div><div class="spbar"><i id="spFill"></i></div></div>
+    <button class="sp-btn" id="spBtn">⚡ ひっさつわざ</button>
+    <div class="timewrap"><div class="timebar"><i id="timeFill"></i></div></div>
+    <div id="qCount" style="text-align:center;font-size:12px;color:var(--gold);font-weight:800;margin-top:3px"></div>
+    <div class="qcard" id="qcard"></div>
+    <div id="playArea"></div>
+  </section>
+
+  <!-- レベルアップ -->
+  <div id="levelup">
+    <div class="lu-burst">✨ ⭐ ✨ ⭐ ✨</div>
+    <div class="lu-title">LEVEL UP!</div>
+    <div class="lu-wpn" id="luWpn">⚔️</div>
+    <div class="lu-msg" id="luMsg"></div>
+    <div class="lu-sub" id="luSub"></div>
+  </div>
+
+  <!-- 結果 -->
+  <section class="screen" id="result">
+    <div class="res-emo" id="rEmo"></div>
+    <div class="res-title" id="rTitle">VICTORY!</div>
+    <div id="getWrap"></div>
+    <div class="rewards">
+      <div class="rw"><b id="rXp">+0</b><span>かくとくXP</span></div>
+      <div class="rw"><b id="rCombo">0</b><span>最大コンボ</span></div>
+      <div class="rw"><b id="rGem">+0</b><span>ジェム💎</span></div>
+    </div>
+    <div class="foot">
+      <button class="btn" id="rNext"></button>
+      <button class="btn sub" onclick="goHome()">🗺️ マップへもどる</button>
+    </div>
+  </section>
+
+  <!-- 図鑑 -->
+  <section class="screen" id="dex">
+    <div class="title" style="font-size:22px">📖 ワード図鑑</div>
+    <div class="maptitle" id="dexProgress"></div>
+    <div class="dexgrid" id="dexGrid"></div>
+    <div class="foot"><button class="btn sub" onclick="goHome()">⟵ もどる</button></div>
+  </section>
+
+  <!-- そうび・つよさ -->
+  <section class="screen" id="gear">
+    <div class="title" style="font-size:22px">⚔️ そうび・つよさ</div>
+    <div class="gearhero">
+      <div id="gearHero"></div>
+      <div style="font-weight:900;font-size:20px">🦸 JINSEI</div>
+      <b id="gearAtk">こうげき力 15</b>
+      <span style="font-size:12px;color:var(--dim)" id="gearLv">レベル 1</span>
+    </div>
+    <div class="maptitle" style="margin:2px 0">レベルが上がると武器が進化して強くなる！</div>
+    <div class="gearlist" id="gearList"></div>
+    <div class="foot"><button class="btn sub" onclick="goHome()">⟵ もどる</button></div>
+  </section>
+</div>
+
+<script>
+/* ===== ドット絵モンスター ===== */
+const SLIME={pal:{'.':null,o:'#1b5e20',g:'#3ddc84',l:'#a5ffce',w:'#fff',k:'#0c0d20'},grid:["............","....oooo....","..ooggggoo..",".ooggggggoo.",".oggllggggo.",".oggggggggo.",".owwggggwwo.",".okwggggwko.",".oggggggggo.",".oggggggggo.","..oooooooo..","............"]};
+const BAT={pal:{'.':null,o:'#311b92',p:'#7c4dff',w:'#fff',k:'#0c0d20'},grid:["............","oo..oooo..oo","ooo.oooo.ooo",".oppwwwwppo.",".oppkkkkppo.",".oppppppppo.",".oppppppppo.","..opppppppo.","...oppppo...","....o..o....","............","............"]};
+const GHOST={pal:{'.':null,w:'#eceff1',k:'#37474f'},grid:["....wwww....","..wwwwwwww..",".wwwwwwwwww.","wwwwwwwwwwww","wwkkwwwwkkww","wwkkwwwwkkww","wwwwwwwwwwww","wwwwwwwwwwww","wwwwwwwwwwww","wwwwwwwwwwww","w.ww.ww.ww.w","............"]};
+const GOLEM={pal:{'.':null,o:'#3e2723',r:'#9e9e9e',d:'#616161',w:'#ffeb3b',k:'#0c0d20'},grid:["............","..oooooooo..",".orrrrrrrro.","orrddddddrro","ordwwddwwdro","orrddddddrro","orrdkkkkdrro","orrddddddrro",".orrrrrrrro.",".oo.oooo.oo.","..oo....oo..","............"]};
+const DRAGON={pal:{'.':null,o:'#4a148c',p:'#9d4edd',v:'#e0aaff',w:'#fff',k:'#0c0d20',r:'#ff4d6d'},grid:[".o........o.",".op......po.","..oppppppo..",".oppppppppo.","oppvppppvppo","opwwppppwwpo","opkwppppwkpo","oppppppppppo",".opprrrrppo.",".opkkkkkkpo.","..oppppppo..","............"]};
+const DEMON={pal:{'.':null,r:'#ff4d6d',w:'#fff',k:'#0c0d20',y:'#ffca28'},grid:["y..........y","yy........yy",".rr......rr.",".rrrrrrrrrr.","rrrrrrrrrrrr","rrwwrrrrwwrr","rrwkrrrrkwrr","rrrrrrrrrrrr",".rrkkkkkkrr.",".rrrrrrrrrr.","..rr....rr..","............"]};
+const TROPHY={pal:{'.':null,g:'#ffd23f'},grid:["............",".gggggggggg.",".gggggggggg.","..gggggggg..","...gggggg...","....gggg....",".....gg.....",".....gg.....",".....gg.....","....gggg....","..gggggggg..","............"]};
+const SKULL={pal:{'.':null,w:'#e0e0e0',k:'#0c0d20'},grid:["............","...wwwwww...","..wwwwwwww..",".wwwwwwwwww.",".wwwwwwwwww.",".wkkwwwwkkw.",".wkkwwwwkkw.",".wwwwwwwwww.","..wwwwwwww..","..wwwwwwww..","..w.w.w.w...","............"]};
+function pixel(m,sil){const g=m.grid,h=g.length,w=g[0].length;let r='';for(let y=0;y<h;y++)for(let x=0;x<w;x++){let c=m.pal[g[y][x]];if(!c)continue;if(sil)c='#2c2f5e';r+=`<rect x="${x}" y="${y}" width="1.03" height="1.03" fill="${c}"/>`;}return `<svg viewBox="0 0 ${w} ${h}" shape-rendering="crispEdges">${r}</svg>`;}
+
+/* ヒーロー「JINSEI」――レベルで見た目が進化（はだかの少年→服→おしゃれ→勇者→魔法使い→王）*/
+const HERO_NAME="JINSEI";
+const G_KID=["...HHHHHH...","..HHHHHHHH..","..HssssssH..","..HskssksH..","..HssssssH..","...ssssss...",".ssssssssss.","ssssssssssss","ssssssssssss",".ssssssssss.","..ssppss....","..ss..ss....","..ss..ss...."];
+const G_NORMAL=["...HHHHHH...","..HHHHHHHH..","..HssssssH..","..HskssksH..","..HssssssH..","...ssssss...",".cccccccccc.","sccccccccccs","sccccccccccs",".cccccccccc.","..pppppppp..","..pppppppp..","..bbb..bbb.."];
+const G_WIZ=[".....HH.....","....HHHH....","...HHHHHH...","..HHHHHHHH..","..HssssssH..","..HskssksH..","...ssssss...",".cccccccccc.","sccccccccccs",".cccccccccc.",".cccccccccc.",".cccccccccc.","..cccccccc.."];
+const G_KING=["..yy.yy.yy..","..yyyyyyyy..","..HssssssH..","..HskssksH..","..HssssssH..","...ssssss...","cccccccccccc","sccccccccccs","cccccccccccc",".cccccccccc.","..pppppppp..","..pp..pp....","..bbb..bbb.."];
+const LOOKS=[
+  {grid:G_KID,   pal:{'.':null,H:'#6d4c41',s:'#ffcc99',k:'#0c0d20',p:'#eceff1'}},                         // 0 はだかの少年(小さな下着)
+  {grid:G_NORMAL,pal:{'.':null,H:'#5d4037',s:'#ffcc99',k:'#0c0d20',c:'#90a4ae',p:'#546e7a',b:'#37474f'}},  // 1 ふつうの服
+  {grid:G_NORMAL,pal:{'.':null,H:'#5d4037',s:'#ffcc99',k:'#0c0d20',c:'#43a047',p:'#2e5e1e',b:'#1b5e20'}},  // 2 おしゃれ(緑)
+  {grid:G_NORMAL,pal:{'.':null,H:'#5d4037',s:'#ffcc99',k:'#0c0d20',c:'#ffca28',p:'#f9a825',b:'#6d4c41'},aura:'#ffd23f'}, // 3 金の冒険者
+  {grid:G_NORMAL,pal:{'.':null,H:'#4e342e',s:'#ffcc99',k:'#0c0d20',c:'#26c6da',p:'#00838f',b:'#004d40'},aura:'#26c6da'}, // 4 勇者(青)
+  {grid:G_WIZ,   pal:{'.':null,H:'#7c4dff',s:'#ffcc99',k:'#0c0d20',c:'#5e35b1'},aura:'#7c4dff'},            // 5 魔法使い
+  {grid:G_KING,  pal:{'.':null,y:'#ffd23f',H:'#3e2723',s:'#ffcc99',k:'#0c0d20',c:'#e53935',p:'#b71c1c',b:'#ffd23f'},aura:'#ff5252'}, // 6 王
+];
+function heroHTML(level,px){
+  const w=weaponOf(level),tier=WEAPONS.indexOf(w),L=LOOKS[tier]||LOOKS[0];
+  const aura=L.aura?`box-shadow:0 0 ${10+tier*3}px ${L.aura}; background:radial-gradient(circle,${L.aura}66,transparent 70%);`:'';
+  return `<div class="herowrap" style="width:${px}px;height:${px}px">
+    <div class="hero-aura" style="${aura}"></div>${pixel({pal:L.pal,grid:L.grid})}
+    <span class="hero-wpn" style="font-size:${Math.round(px*0.42)}px">${w.e}</span></div>`;
+}
+function atkPower(level){return 15+weaponOf(level).atk;}
+function nextWeapon(level){return WEAPONS.find(w=>w.lv>level);}
+
+/* ===== 単語データ（意味・ダミー・絵・例文）===== */
+const WORDS={
+  increase:{a:"増える・増やす",w:["減る","変える","保つ"],pic:"📈",ex:"Eating well will increase my power.",ja:"よく食べると力が増える。"},
+  reduce:{a:"減らす",w:["増やす","生み出す","比べる"],pic:"📉",ex:"I want to reduce my homework.",ja:"宿題を減らしたい。"},
+  improve:{a:"改善する・上達する",w:["悪化させる","保つ","拒否する"],pic:"💪",ex:"I practice to improve my English.",ja:"英語を上達させるために練習する。"},
+  realize:{a:"気づく・実現する",w:["疑う","忘れる","断る"],pic:"💡",ex:"I realize my mistake now.",ja:"今、自分のミスに気づく。"},
+  express:{a:"表現する・述べる",w:["隠す","命令する","測る"],pic:"🗣️",ex:"I express my feelings.",ja:"気持ちを表現する。"},
+  imagine:{a:"想像する",w:["記憶する","証明する","到着する"],pic:"💭",ex:"Imagine a flying car!",ja:"空飛ぶ車を想像して！"},
+  avoid:{a:"避ける",w:["求める","許す","与える"],pic:"🚫",ex:"Avoid the puddle.",ja:"水たまりを避ける。"},
+  achieve:{a:"達成する",w:["失敗する","あきらめる","延期する"],pic:"🏆",ex:"I will achieve my dream.",ja:"夢を達成する。"},
+  provide:{a:"提供する",w:["奪う","隠す","壊す"],pic:"🎁",ex:"We provide free water.",ja:"無料の水を提供する。"},
+  develop:{a:"発展させる・育つ",w:["破壊する","発見する","延期する"],pic:"🌱",ex:"Plants develop slowly.",ja:"植物はゆっくり育つ。"},
+  important:{a:"重要な",w:["簡単な","危険な","正直な"],pic:"⭐",ex:"Sleep is important.",ja:"睡眠は重要だ。"},
+  difficult:{a:"難しい",w:["やさしい","退屈な","便利な"],pic:"😣",ex:"This game is difficult.",ja:"このゲームは難しい。"},
+  necessary:{a:"必要な",w:["十分な","余分な","可能な"],pic:"✅",ex:"Water is necessary for life.",ja:"水は生命に必要だ。"},
+  various:{a:"さまざまな",w:["同じ","少ない","主要な"],pic:"🌈",ex:"Various colors of candy.",ja:"さまざまな色のあめ。"},
+  similar:{a:"似ている",w:["反対の","等しい","めずらしい"],pic:"👯",ex:"We have similar bags.",ja:"私たちは似たかばんを持つ。"},
+  several:{a:"いくつかの",w:["すべての","ほとんどの","唯一の"],pic:"🔢",ex:"I have several pens.",ja:"ペンをいくつか持っている。"},
+  perhaps:{a:"おそらく",w:["決して〜ない","すでに","とても"],pic:"🤔",ex:"Perhaps it will rain.",ja:"おそらく雨が降る。"},
+  however:{a:"しかしながら",w:["したがって","たとえば","さらに"],pic:"🔄",ex:"I'm tired; however, I'll study.",ja:"疲れた。しかし勉強する。"},
+  obvious:{a:"明らかな",w:["曖昧な","秘密の","複雑な"],pic:"👀",ex:"The answer is obvious.",ja:"答えは明らかだ。"},
+  familiar:{a:"よく知っている",w:["珍しい","危険な","退屈な"],pic:"🤝",ex:"This song is familiar.",ja:"この歌はよく知っている。"},
+  subject:{a:"教科・主題",w:["教室","宿題","制服"],pic:"📚",ex:"Math is my favorite subject.",ja:"数学は好きな教科だ。"},
+  explain:{a:"説明する",w:["質問する","暗記する","提出する"],pic:"🧑‍🏫",ex:"Please explain the rule.",ja:"ルールを説明して。"},
+  prepare:{a:"準備する",w:["片付ける","遅れる","休む"],pic:"🎒",ex:"Prepare for the test.",ja:"テストの準備をする。"},
+  decide:{a:"決める",w:["迷う","忘れる","諦める"],pic:"🙆",ex:"I decide what to eat.",ja:"何を食べるか決める。"},
+  choose:{a:"選ぶ",w:["捨てる","集める","数える"],pic:"👉",ex:"Choose one card.",ja:"カードを1枚選ぶ。"},
+  continue:{a:"続ける",w:["やめる","始める","休む"],pic:"▶️",ex:"Continue the game.",ja:"ゲームを続ける。"},
+  share:{a:"分け合う",w:["独占する","奪う","捨てる"],pic:"🤲",ex:"Share the snacks.",ja:"おかしを分け合う。"},
+  reason:{a:"理由",w:["結果","方法","目的"],pic:"❓",ex:"Tell me the reason.",ja:"理由を教えて。"},
+  opinion:{a:"意見",w:["事実","質問","命令"],pic:"💬",ex:"What is your opinion?",ja:"あなたの意見は？"},
+  effect:{a:"影響・効果",w:["原因","努力","期待"],pic:"✨",ex:"Music has a good effect.",ja:"音楽はよい効果がある。"},
+  weather:{a:"天気",w:["気温","季節","風景"],pic:"⛅",ex:"The weather is nice.",ja:"天気がいい。"},
+  ocean:{a:"海・大洋",w:["湖","川","池"],pic:"🌊",ex:"Fish live in the ocean.",ja:"魚は海に住む。"},
+  forest:{a:"森",w:["砂漠","草原","山"],pic:"🌲",ex:"Bears live in the forest.",ja:"クマは森に住む。"},
+  energy:{a:"エネルギー",w:["重力","距離","速度"],pic:"⚡",ex:"I have lots of energy.",ja:"エネルギーがたくさんある。"},
+  protect:{a:"守る",w:["攻撃する","汚す","捨てる"],pic:"🛡️",ex:"Helmets protect your head.",ja:"ヘルメットは頭を守る。"},
+  natural:{a:"自然の",w:["人工の","危険な","めずらしい"],pic:"🍃",ex:"Natural food is healthy.",ja:"自然の食べ物は健康的。"},
+  survive:{a:"生き残る",w:["滅びる","逃げる","眠る"],pic:"🏕️",ex:"Cactus can survive without water.",ja:"サボテンは水なしで生き残れる。"},
+  climate:{a:"気候",w:["天気予報","湿度","気圧"],pic:"🌡️",ex:"The climate is warm here.",ja:"ここの気候は暖かい。"},
+  species:{a:"（生物の）種",w:["群れ","巣","えさ"],pic:"🦎",ex:"Many animal species exist.",ja:"多くの動物の種が存在する。"},
+  disappear:{a:"消える",w:["現れる","増える","止まる"],pic:"💨",ex:"The magician will disappear.",ja:"手品師が消える。"},
+  environment:{a:"環境",w:["政府","産業","教育"],pic:"🌍",ex:"We protect the environment.",ja:"環境を守る。"},
+  society:{a:"社会",w:["経済","文化","自然"],pic:"👥",ex:"We live in a society.",ja:"私たちは社会で暮らす。"},
+  culture:{a:"文化",w:["農業","技術","宗教"],pic:"🎎",ex:"Japan has a rich culture.",ja:"日本は豊かな文化を持つ。"},
+  experience:{a:"経験",w:["知識","結果","目的"],pic:"🎢",ex:"A fun experience!",ja:"楽しい経験！"},
+  situation:{a:"状況",w:["問題","解決","関係"],pic:"🎬",ex:"A difficult situation.",ja:"難しい状況。"},
+  information:{a:"情報",w:["説明","注意","想像"],pic:"📰",ex:"I need more information.",ja:"もっと情報がほしい。"},
+  government:{a:"政府",w:["会社","学校","軍隊"],pic:"🏛️",ex:"The government makes laws.",ja:"政府は法律を作る。"},
+  technology:{a:"科学技術",w:["芸術","農業","医学"],pic:"🤖",ex:"Technology is amazing.",ja:"科学技術はすごい。"},
+  researcher:{a:"研究者",w:["発明家","記者","政治家"],pic:"🔬",ex:"The researcher studies stars.",ja:"研究者は星を研究する。"},
+  although:{a:"〜だけれども",w:["なぜなら","〜のあいだ","〜まで"],pic:"🔀",ex:"Although it's cold, I'm happy.",ja:"寒いけれど、私は幸せだ。"},
+};
+function W(key){return Object.assign({q:key},WORDS[key]);}
+
+const STAGES=[
+  {id:"verbs",name:"アクション草原",mon:SLIME,hp:100,list:["increase","reduce","improve","realize","express","imagine","avoid","achieve","provide","develop"]},
+  {id:"adj",name:"ようすの洞窟",mon:BAT,hp:130,list:["important","difficult","necessary","various","similar","several","perhaps","however","obvious","familiar"]},
+  {id:"school",name:"まなびの学園",mon:GHOST,hp:160,list:["subject","explain","prepare","decide","choose","continue","share","reason","opinion","effect"]},
+  {id:"nature",name:"しぜんの森",mon:GOLEM,hp:190,list:["weather","ocean","forest","energy","protect","natural","survive","climate","species","disappear"]},
+  {id:"noun",name:"せかいの神殿",mon:DRAGON,hp:220,list:["environment","society","culture","experience","situation","information","government","technology","researcher","necessary"]},
+  {id:"boss",name:"魔王の城",mon:DEMON,hp:300,list:["increase","necessary","environment","although","achieve","society","protect","experience","survive","technology","various","government"]},
+];
+
+/* ===== 武器（レベルで強くなる）===== */
+const WEAPONS=[{lv:1,e:"👊",n:"こぶし",atk:0},{lv:2,e:"🪵",n:"きのぼう",atk:6},{lv:3,e:"🗡️",n:"たんけん",atk:12},
+  {lv:4,e:"⚔️",n:"つるぎ",atk:20},{lv:6,e:"🔱",n:"トライデント",atk:30},{lv:8,e:"🪄",n:"まほうのつえ",atk:42},{lv:10,e:"🔥",n:"えんまのつるぎ",atk:56}];
+function weaponOf(lv){let c=WEAPONS[0];for(const x of WEAPONS)if(lv>=x.lv)c=x;return c;}
+
+/* ===== サウンド ===== */
+let AC=null,muted=false;
+function ac(){if(!AC){try{AC=new (window.AudioContext||window.webkitAudioContext)();}catch(e){}}if(AC&&AC.state==='suspended')AC.resume();return AC;}
+function tone(f,t0,dur,type,vol){const a=ac();if(!a||muted)return;const o=a.createOscillator(),gg=a.createGain();o.type=type||'square';o.frequency.value=f;gg.gain.setValueAtTime(0,a.currentTime+t0);gg.gain.linearRampToValueAtTime(vol||.16,a.currentTime+t0+.01);gg.gain.exponentialRampToValueAtTime(.0001,a.currentTime+t0+dur);o.connect(gg).connect(a.destination);o.start(a.currentTime+t0);o.stop(a.currentTime+t0+dur+.02);}
+function sCorrect(c){const b=660+Math.min(c,8)*55;tone(b,0,.12,'square',.16);tone(b*1.5,.07,.13,'square',.14);}
+function sWrong(){tone(200,0,.1,'square',.16);tone(150,.08,.2,'sawtooth',.18);tone(90,.14,.25,'sawtooth',.16);}
+function sSpecial(){[440,580,720,920,1180].forEach((f,i)=>tone(f,i*.05,.18,'square',.16));}
+function sWin(){[523,659,784,1047].forEach((f,i)=>tone(f,i*.12,.3,'triangle',.18));}
+function sLose(){[400,300,220,160].forEach((f,i)=>tone(f,i*.14,.3,'sawtooth',.16));}
+function sLevel(){[523,659,784,1047,1319].forEach((f,i)=>tone(f,i*.1,.35,'triangle',.2));}
+function toggleMute(){muted=!muted;document.getElementById('muteBtn').textContent=muted?'🔇':'🔊';}
+
+/* ===== 発音（Web Speech・確実に鳴らす）===== */
+let VOICES=[];
+function loadVoices(){if('speechSynthesis'in window)VOICES=speechSynthesis.getVoices();}
+if('speechSynthesis'in window){loadVoices();speechSynthesis.onvoiceschanged=loadVoices;}
+function pickVoice(lang){if(!VOICES.length)loadVoices();const re=lang==='ja'?/^ja/i:/^en/i;return VOICES.find(v=>v.lang&&re.test(v.lang));}
+function makeUtter(t,lang){const u=new SpeechSynthesisUtterance(t);u.lang=lang==='ja'?'ja-JP':'en-US';u.rate=lang==='ja'?1:.82;u.volume=1;const v=pickVoice(lang);if(v)u.voice=v;return u;}
+function speak(t,lang){ // 単発（🔊ボタン用）
+  if(!('speechSynthesis'in window))return;
+  try{if(!VOICES.length)loadVoices();speechSynthesis.cancel();setTimeout(()=>speechSynthesis.speak(makeUtter(t,lang||'en')),60);}catch(e){}
+}
+function speakSeq(items){ // 連続読み上げ（例文→日本語→単語）
+  if(!('speechSynthesis'in window))return;
+  try{if(!VOICES.length)loadVoices();speechSynthesis.cancel();let i=0;
+    const next=()=>{if(i>=items.length)return;const it=items[i++];const u=makeUtter(it.t,it.lang);u.onend=next;u.onerror=next;speechSynthesis.speak(u);};
+    setTimeout(next,80);
+  }catch(e){}
+}
+
+/* ===== セーブ ===== */
+const DEFAULT={xp:0,gems:0,streak:0,bestStreak:0,lastPlay:"",todayXp:0,cleared:{},dex:{},wrong:{}};
+let store=Object.assign({},DEFAULT,JSON.parse(localStorage.getItem("wordquest")||'{}'));
+const save=()=>localStorage.setItem("wordquest",JSON.stringify(store));
+const GOAL=50;
+const lvOf=xp=>Math.floor(xp/120)+1;
+function dkey(o){const d=new Date();if(o)d.setDate(d.getDate()+o);return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();}
+function rollDay(){const t=dkey(0);if(store.lastPlay!==t){if(store.lastPlay===dkey(-1))store.streak=(store.streak||0)+1;else store.streak=1;store.lastPlay=t;store.todayXp=0;store.bestStreak=Math.max(store.bestStreak||0,store.streak);}}
+function gainXP(n){rollDay();store.xp+=n;store.todayXp+=n;save();}
+
+const $=s=>document.querySelector(s);
+function shuffle(a){a=[...a];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));$('#'+id).classList.add('active');}
+
+/* ===== ホーム ===== */
+function goHome(){
+  clearInterval(g.timer);
+  const lv=lvOf(store.xp),wpn=weaponOf(lv);
+  $('#sStreak').textContent=store.streak||0;
+  $('#sLv').textContent=lv;
+  $('#wpnChip').textContent=wpn.e;
+  $('#sXp').textContent=store.xp;
+  $('#sGem').textContent=store.gems;
+  $('#homeHero').innerHTML=heroHTML(lv,78);
+  $('#homeHeroName').textContent='🦸 '+HERO_NAME+'  Lv.'+lv;
+  $('#homeAtk').textContent='こうげき力 '+atkPower(lv);
+  $('#homeWpnName').textContent=wpn.e+' '+wpn.n;
+  const nx=nextWeapon(lv);
+  $('#homeNext').textContent=nx?`つぎの武器「${nx.n}」は Lv.${nx.lv} で！`:'🔥 さいきょうの武器をてにいれた！';
+  const tx=(store.lastPlay===dkey(0))?store.todayXp:0;
+  $('#goalT').textContent=Math.min(tx,GOAL)+' / '+GOAL+' XP'+(tx>=GOAL?' ✅':'');
+  $('#goalFill').style.width=Math.min(100,tx/GOAL*100)+'%';
+  const map=$('#map');map.innerHTML='';
+  STAGES.forEach((s,i)=>{
+    const locked=i>0 && !store.cleared[STAGES[i-1].id], cleared=!!store.cleared[s.id];
+    const el=document.createElement('div');el.className='node'+(locked?' locked':'')+(cleared?' cleared':'');
+    el.innerHTML=`<div class="mon">${pixel(s.mon,locked)}</div><div class="meta"><b>${locked?'？？？':s.name}</b><span>${s.list.length}語 / 全10問</span></div><div class="badge">${cleared?'✅':(locked?'🔒':'▶️')}</div><div class="stg">STAGE ${i+1}</div>`;
+    if(!locked)el.onclick=()=>startBattle(i);
+    map.appendChild(el);
+    if(i<STAGES.length-1){const c=document.createElement('div');c.className='connector';map.appendChild(c);}
+  });
+  const wkeys=Object.keys(store.wrong);
+  const rb=$('#reviewBtn');
+  if(wkeys.length){rb.style.display='block';rb.textContent=`🔁 にがた単語を ふくしゅう（${wkeys.length}語）`;}
+  else rb.style.display='none';
+  show('home');
+}
+
+/* ===== 図鑑 ===== */
+function openDex(){
+  const got=Object.keys(store.dex).length;
+  $('#dexProgress').textContent=`コンプリート ${got} / ${STAGES.length} 体`;
+  const grid=$('#dexGrid');grid.innerHTML='';
+  STAGES.forEach(s=>{const has=!!store.dex[s.id];const el=document.createElement('div');el.className='dexcell'+(has?' got':'');el.innerHTML=`<div class="gm">${pixel(s.mon,!has)}</div><b>${has?s.name:'？？？'}</b><span>${has?'ゲット済み':'みかくにん'}</span>`;grid.appendChild(el);});
+  show('dex');
+}
+
+/* ===== そうび・つよさ ===== */
+function openGear(){
+  const lv=lvOf(store.xp);
+  $('#gearHero').innerHTML=heroHTML(lv,110);
+  $('#gearAtk').textContent='こうげき力 '+atkPower(lv);
+  $('#gearLv').textContent='レベル '+lv;
+  const list=$('#gearList');list.innerHTML='';
+  WEAPONS.forEach(w=>{
+    const unlocked=lv>=w.lv, equipped=weaponOf(lv).n===w.n;
+    const el=document.createElement('div');
+    el.className='gearrow'+(equipped?' eq':'')+(unlocked?'':' lock');
+    const status=equipped?'⚔️ そうび中':(unlocked?'<span class="gs done">かいほう済み</span>':`Lv.${w.lv} でかいほう`);
+    el.innerHTML=`<div class="ge">${unlocked?w.e:'🔒'}</div>
+      <div class="gn"><b>${unlocked?w.n:'？？？'}</b><span>こうげき力 +${w.atk}</span></div>
+      <div class="gs">${equipped?'⚔️ そうび中':status}</div>`;
+    list.appendChild(el);
+  });
+  show('gear');
+}
+
+/* ===== バトル ===== */
+let g={};
+const PRAISE=["すごい！","てんさい！","かんぺき！","そのちょうし！","ナイス！","やるね！","さいこう！"];
+function enemyHP(isBoss){const base=12+weaponOf(lvOf(store.xp)).atk;const need=isBoss?16:14;return Math.round(need*base);}
+function startBattle(i){
+  ac();const s=STAGES[i];const hp=enemyHP(s.id==='boss');
+  g={stage:s,idx:i,review:false,ehp:hp,ehpMax:hp,php:100,phpMax:100,sp:0,combo:0,maxCombo:0,xp:0,
+     queue:shuffle(s.list.map(W)),qi:0,qNum:0,wrongQ:[],lock:false,done:false,timer:null};
+  beginBattle(s.name+" にいどむ！",s.mon);
+}
+function startReview(){
+  ac();const keys=Object.keys(store.wrong);if(!keys.length)return;
+  const words=keys.map(W);const hp=enemyHP(false);
+  g={stage:{id:'review',name:'にがて道場',mon:GHOST},idx:-1,review:true,ehp:hp,ehpMax:hp,
+     php:100,phpMax:100,sp:0,combo:0,maxCombo:0,xp:0,queue:shuffle(words),qi:0,qNum:0,wrongQ:[],lock:false,done:false,timer:null};
+  beginBattle("にがて道場 で とっくん！",GHOST);
+}
+function beginBattle(title,mon){
+  $('#eName').textContent=title;$('#eMon').innerHTML=pixel(mon);$('#spBtn').onclick=useSpecial;
+  $('#battleHero').innerHTML=heroHTML(lvOf(store.xp),40);
+  show('battle');renderBars();renderSP();nextQuestion();
+}
+function swingHero(){const h=$('#battleHero').firstElementChild;if(!h)return;h.classList.remove('swing');void h.offsetWidth;h.classList.add('swing');}
+
+function renderBars(){
+  $('#eHp').style.width=Math.max(0,g.ehp/g.ehpMax*100)+'%';
+  $('#eHpT').textContent=`敵HP ${Math.max(0,Math.round(g.ehp))} / ${g.ehpMax}`;
+  $('#pHp').style.width=Math.max(0,g.php/g.phpMax*100)+'%';
+  const wpn=weaponOf(lvOf(store.xp));
+  $('#pHpT').innerHTML=`🛡️ じぶん ${wpn.e}${wpn.n} <b>HP ${Math.max(0,Math.round(g.php))}/${g.phpMax}</b>`;
+  const c=$('#combo');
+  if(g.combo>=2){c.textContent=`🔥 ${g.combo} COMBO!`+(g.combo>=5?' すごい！':'');c.classList.remove('pump');void c.offsetWidth;c.classList.add('pump');}
+  else c.textContent='';
+}
+function renderSP(){$('#spFill').style.width=g.sp+'%';$('#spT').textContent=g.sp+'%';const b=$('#spBtn');if(g.sp>=100){b.classList.add('ready');b.textContent='⚡ ひっさつわざ READY！タップ！';}else{b.classList.remove('ready');b.textContent=`⚡ ひっさつわざ（${g.sp}%）`;}}
+function addSP(n){g.sp=Math.min(100,g.sp+n);renderSP();}
+const TLIMIT=20000; // 1問の考える時間(ms)
+const ROUND=10;     // 1バトルの問題数
+function startTimer(){clearInterval(g.timer);g.t0=performance.now();$('#timeFill').style.width='100%';g.timer=setInterval(()=>{const pct=Math.max(0,100-(performance.now()-g.t0)/TLIMIT*100);$('#timeFill').style.width=pct+'%';if(pct<=0){clearInterval(g.timer);timeUp();}},50);}
+
+function pickWord(){
+  if(g.wrongQ.length && Math.random()<0.5){g.isRetry=true;return g.wrongQ.shift();}
+  g.isRetry=false;
+  if(g.qi>=g.queue.length){g.queue=shuffle(g.queue);g.qi=0;}
+  return g.queue[g.qi++];
+}
+function nextQuestion(){
+  if(g.done)return;g.lock=false;
+  const w=pickWord();g.cur=w;
+  $('#qCount').textContent='もんだい '+(g.qNum+1)+' / '+ROUND;
+  $('#qcard').innerHTML=`
+    <div class="qtype">${g.isRetry?'<span class="retry">🔁 もう一回！おぼえてる？</span>':'📖 この単語の いみは？'}</div>
+    <div class="wordrow"><span class="qword">${w.q}</span><button class="speak" id="spk">🔊</button></div>
+    <div class="pic">${w.pic}</div>
+    <div class="hint" id="hintBox"><div>💡 ${w.ex}</div><div class="ja" id="jaBox" style="display:none">${w.ja}</div></div>
+    <button class="hintbtn" id="hintBtn">🇯🇵 日本語のいみを見る</button>`;
+  document.getElementById('spk').onclick=()=>speak(w.q);
+  const hb=document.getElementById('hintBtn'),ja=document.getElementById('jaBox');
+  hb.onclick=()=>{ja.style.display='block';hb.style.display='none';};
+  if(g.isRetry){ja.style.display='block';hb.style.display='none';} // 苦手は日本語ヒントも最初から
+  renderChoices(w.a, shuffle([w.a,...w.w]).slice(0,4));
+  speakSeq([{t:w.ex,lang:'en'},{t:w.ja,lang:'ja'},{t:w.q,lang:'en'}]); // 例文→日本語→単語の順で読み上げ
+  startTimer();
+}
+function renderChoices(correct,options){
+  const pa=$('#playArea');pa.innerHTML='';const box=document.createElement('div');box.className='choices';
+  options.forEach(o=>{const b=document.createElement('button');b.className='choice';b.textContent=o;
+    b.onclick=()=>{if(g.lock)return;const ok=(o===correct);document.querySelectorAll('.choice').forEach(c=>{c.disabled=true;if(c.textContent===correct)c.classList.add('ok');else if(c===b)c.classList.add('ng');});finalize(ok);};box.appendChild(b);});
+  pa.appendChild(box);
+  g.revealCorrect=()=>document.querySelectorAll('.choice').forEach(c=>{c.disabled=true;if(c.textContent===correct)c.classList.add('ok');});
+}
+
+function finalize(ok){
+  if(g.lock||g.done)return;g.lock=true;clearInterval(g.timer);g.qNum++;
+  const elapsed=performance.now()-g.t0;const key=g.cur.q;
+  let delay;
+  if(ok){
+    g.combo++;g.maxCombo=Math.max(g.maxCombo,g.combo);
+    const crit=g.combo>=3,fast=elapsed<3500;
+    let base=12+Math.floor(Math.random()*8)+weaponOf(lvOf(store.xp)).atk;if(fast)base+=8;
+    const dmg=crit?Math.round(base*2):base;
+    g.ehp-=dmg;g.xp+=10;addSP(crit?34:20);
+    popDmg(dmg,crit?'crit':'');hitEnemy();swingHero();burst(crit?10:5);sCorrect(g.combo);
+    popText(fast?'💨'+PRAISE[Math.floor(Math.random()*PRAISE.length)]:PRAISE[Math.floor(Math.random()*PRAISE.length)],'gold','40%');
+    if(store.wrong[key]){delete store.wrong[key];save();} // 苦手こくふく
+    delay=650;
+  }else{
+    g.combo=0;
+    if(!g.wrongQ.includes(g.cur))g.wrongQ.push(g.cur);
+    store.wrong[key]=true;save();
+    if(g.revealCorrect)g.revealCorrect();
+    const dmg=14+Math.floor(Math.random()*8);g.php-=dmg;
+    hurtPlayer(dmg);
+    delay=1500; // 正解を見る時間を長めに
+  }
+  renderBars();
+  setTimeout(advance,delay);
+}
+function timeUp(){
+  if(g.lock||g.done)return;g.lock=true;g.qNum++;
+  if(g.revealCorrect)g.revealCorrect();
+  g.combo=0;const key=g.cur.q;if(!g.wrongQ.includes(g.cur))g.wrongQ.push(g.cur);store.wrong[key]=true;save();
+  g.php-=14;hurtPlayer(14,'⏰ じかんぎれ');renderBars();setTimeout(advance,1500);
+}
+function advance(){if(g.done)return;if(g.php<=0)return finish(false);if(g.qNum>=ROUND)return finish(true);nextQuestion();}
+
+function useSpecial(){
+  if(g.sp<100||g.lock||g.done)return;g.sp=0;renderSP();
+  const dmg=60+Math.floor(Math.random()*30)+weaponOf(lvOf(store.xp)).atk;
+  g.ehp-=dmg;g.xp+=15;flashSP();popDmg(dmg,'sp');hitEnemy();burst(16);sSpecial();
+  renderBars();if(g.ehp<=0)setTimeout(()=>finish(true),400);
+}
+
+/* 演出 */
+function popDmg(n,cls){const d=$('#dmg');d.textContent=(cls==='crit'?'💥':cls==='sp'?'⚡':'')+n;d.className='dmg '+cls+' go';d.addEventListener('animationend',()=>d.className='dmg',{once:true});}
+function popText(t,color,top){const d=document.createElement('div');d.className='dmg go';d.style.top=top||'38%';d.style.color=color==='red'?'#ff6b81':'var(--gold)';d.style.fontSize='26px';d.textContent=t;$('#battle').appendChild(d);setTimeout(()=>d.remove(),1000);}
+function hitEnemy(){const m=$('#eMon');m.classList.remove('idle');m.classList.add('hit');m.addEventListener('animationend',()=>{m.classList.remove('hit');m.classList.add('idle');},{once:true});}
+function hurtPlayer(dmg,label){
+  const m=$('#eMon');m.classList.remove('idle');m.classList.add('attack');m.addEventListener('animationend',()=>{m.classList.remove('attack');m.classList.add('idle');},{once:true});
+  const f=$('#flash');f.className='flash go';f.addEventListener('animationend',()=>f.className='flash',{once:true});
+  const v=$('#vignette');v.className='vignette go';v.addEventListener('animationend',()=>v.className='vignette',{once:true});
+  const app=$('#app');app.classList.remove('shake');void app.offsetWidth;app.classList.add('shake');app.addEventListener('animationend',()=>app.classList.remove('shake'),{once:true});
+  popText(label||('💥 -'+dmg+' ダメージ！'),'red','60%');
+  sWrong();if(navigator.vibrate)navigator.vibrate(120);
+}
+function flashSP(){const f=$('#flash');f.className='flash spfx go';f.addEventListener('animationend',()=>f.className='flash',{once:true});}
+function burst(n){const wrap=$('#battle'),emo=['⭐','✨','💥','🌟'];for(let i=0;i<n;i++){const s=document.createElement('div');s.className='star';s.textContent=emo[i%emo.length];wrap.appendChild(s);const ang=Math.random()*Math.PI*2,dist=60+Math.random()*90;requestAnimationFrame(()=>{s.style.transform=`translate(${Math.cos(ang)*dist}px,${Math.sin(ang)*dist}px) scale(${.5+Math.random()})`;s.style.opacity='0';});setTimeout(()=>s.remove(),700);}}
+
+/* レベルアップ */
+function showLevelUp(oldLv,newLv,cb){
+  const oldW=weaponOf(oldLv),newW=weaponOf(newLv),gotWeapon=oldW.n!==newW.n;
+  $('#luWpn').innerHTML=heroHTML(newLv,120);
+  $('#luMsg').innerHTML=`🦸 ${HERO_NAME} は Lv.${oldLv} から <b style="color:var(--gold)">Lv.${newLv}</b> へ！`;
+  $('#luSub').textContent=gotWeapon?`✨ ${newW.n} をてにいれた！ こうげき力+${newW.atk}`:`つよくなった！ こうげき力+${newW.atk}`;
+  const lu=$('#levelup');lu.classList.add('show');sLevel();burstLU();
+  setTimeout(()=>{lu.classList.remove('show');cb();},2400);
+}
+function burstLU(){const lu=$('#levelup'),emo=['⭐','✨','🎉','💫','🏅'];for(let i=0;i<24;i++){const s=document.createElement('div');s.className='star';s.style.top='50%';s.textContent=emo[i%emo.length];lu.appendChild(s);const ang=Math.random()*Math.PI*2,dist=80+Math.random()*150;requestAnimationFrame(()=>{s.style.transform=`translate(${Math.cos(ang)*dist}px,${Math.sin(ang)*dist}px)`;s.style.opacity='0';});setTimeout(()=>s.remove(),700);}}
+
+/* 結果 */
+function finish(win){
+  if(g.done)return;g.done=true;clearInterval(g.timer);
+  const oldLv=lvOf(store.xp);
+  const xp=g.xp+(win?50:0)+g.maxCombo*5;
+  gainXP(xp);
+  const newLv=lvOf(store.xp);
+  let gems=0;const getWrap=$('#getWrap');getWrap.innerHTML='';
+  if(win){
+    if(!g.review){store.cleared[g.stage.id]=true;const firstGet=!store.dex[g.stage.id];store.dex[g.stage.id]=true;
+      getWrap.innerHTML=`<div class="getbox"><div class="gm">${pixel(g.stage.mon)}</div><b>${firstGet?'✨ NEW! ':''}${g.stage.name}</b> を 図鑑にゲット！</div>`;}
+    else getWrap.innerHTML=`<div class="getbox"><b>🔁 にがて単語を こくふく中！</b><br><span style="font-size:13px;color:var(--dim)">のこり ${Object.keys(store.wrong).length} 語</span></div>`;
+    gems=[5,10,15][Math.floor(Math.random()*3)];store.gems+=gems;
+  }
+  save();
+  const render=()=>{
+    if(win){sWin();}else{sLose();}
+    $('#rEmo').innerHTML=pixel(win?TROPHY:SKULL);
+    $('#rTitle').textContent=win?'VICTORY!':'GAME OVER';$('#rTitle').className='res-title '+(win?'win':'lose');
+    $('#rXp').textContent='+'+xp;$('#rCombo').textContent=g.maxCombo;$('#rGem').textContent='+'+gems;
+    const next=$('#rNext');
+    if(g.review){next.textContent=Object.keys(store.wrong).length?'🔁 まだ続ける':'🏠 ホームへ';next.onclick=()=>Object.keys(store.wrong).length?startReview():goHome();}
+    else if(win&&g.idx<STAGES.length-1){next.textContent='▶ 次のステージへ';next.onclick=()=>startBattle(g.idx+1);}
+    else if(win){next.textContent='🎉 もう一度たたかう';next.onclick=()=>startBattle(g.idx);}
+    else{next.textContent='🔁 リベンジ';next.onclick=()=>startBattle(g.idx);}
+    show('result');
+  };
+  if(newLv>oldLv) showLevelUp(oldLv,newLv,render); else render();
+}
+
+goHome();
+</script>
+</body>
+</html>
